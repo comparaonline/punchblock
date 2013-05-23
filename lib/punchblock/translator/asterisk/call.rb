@@ -105,8 +105,6 @@ module Punchblock
         end
 
         def process_ami_event(ami_event)
-          send_pb_event Event::Asterisk::AMI::Event.new(:name => ami_event.name, :attributes => ami_event.headers)
-
           case ami_event.name
           when 'Hangup'
             handle_hangup_event HANGUP_CAUSE_TO_END_REASON[ami_event['Cause'].to_i]

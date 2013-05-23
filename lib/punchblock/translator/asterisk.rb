@@ -74,10 +74,6 @@ module Punchblock
         handle_varset_ami_event event
 
         ami_dispatch_to_or_create_call event
-
-        unless ami_event_known_call?(event)
-          handle_pb_event Event::Asterisk::AMI::Event.new(:name => event.name, :attributes => event.headers)
-        end
       end
       exclusive :handle_ami_event
 
