@@ -31,11 +31,6 @@ module Punchblock
       #        <grammar content-type="application/grammar+voxeo">[5 DIGITS]</choices>
       #      </input>
       #
-      def self.new(options = {})
-        super().tap do |new_node|
-          options.each_pair { |k,v| new_node.send :"#{k}=", v }
-        end
-      end
 
       ##
       # @return [Integer] the amount of time in milliseconds that an input command will wait until considered that a silence becomes a NO-MATCH
@@ -149,25 +144,10 @@ module Punchblock
         write_attr :'inter-digit-timeout', other, :to_i
       end
 
-      ##
-      # @return [Grammar] the grammar to activate
-      #
-      def grammar
-        node = find_first 'ns:grammar', :ns => self.class.registered_ns
-        Grammar.new node if node
-      end
+      attr_reader :grammar
 
-      ##
-      # @param [Hash] other
-      # @option other [String] :content_type the document content type
-      # @option other [String] :value the grammar doucment
-      # @option other [String] :url the url from which to fetch the grammar
-      #
       def grammar=(other)
-        return unless other
-        remove_children :grammar
-        grammar = Grammar.new(other) unless other.is_a?(Grammar)
-        self << grammar
+        @grammar = Grammar.new(other)
       end
 
       def inspect_attributes # :nodoc:
@@ -175,6 +155,8 @@ module Punchblock
       end
 
       class Grammar < RayoNode
+        attr_accessor :value, :content_type, :url
+
         ##
         # @param [Hash] options
         # @option options [String] :content_type the document content type
@@ -182,7 +164,7 @@ module Punchblock
         # @option options [String] :url the url from which to fetch the grammar
         #
         def self.new(options = {})
-          super(:grammar).tap do |new_node|
+          super().tap do |new_node|
             case options
             when Nokogiri::XML::Node
               new_node.inherit options
@@ -194,58 +176,29 @@ module Punchblock
           end
         end
 
-        ##
-        # @return [String] the document content type
-        #
-        def content_type
-          read_attr 'content-type'
-        end
+        # ##
+        # # @return [String, RubySpeech::GRXML::Grammar] the grammar document
+        # def value
+        #   return nil unless content.present?
+        #   if grxml?
+        #     RubySpeech::GRXML.import content
+        #   else
+        #     content
+        #   end
+        # end
 
-        ##
-        # @param [String] content_type Defaults to GRXML
-        #
-        def content_type=(content_type)
-          return unless content_type
-          write_attr 'content-type', content_type
-        end
-
-        ##
-        # @return [String, RubySpeech::GRXML::Grammar] the grammar document
-        def value
-          return nil unless content.present?
-          if grxml?
-            RubySpeech::GRXML.import content
-          else
-            content
-          end
-        end
-
-        ##
-        # @param [String, RubySpeech::GRXML::Grammar] value the grammar document
-        def value=(value)
-          return unless value
-          self.content_type = grxml_content_type unless self.content_type
-          if grxml? && !value.is_a?(RubySpeech::GRXML::Element)
-            value = RubySpeech::GRXML.import value
-          end
-          Nokogiri::XML::Builder.with(self) do |xml|
-            xml.cdata " #{value} "
-          end
-        end
-
-        ##
-        # @return [String] the URL from which the fetch the grammar
-        #
-        def url
-          read_attr 'url'
-        end
-
-        ##
-        # @param [String] other the URL from which the fetch the grammar
-        #
-        def url=(other)
-          write_attr 'url', other
-        end
+        # ##
+        # # @param [String, RubySpeech::GRXML::Grammar] value the grammar document
+        # def value=(value)
+        #   return unless value
+        #   self.content_type = grxml_content_type unless self.content_type
+        #   if grxml? && !value.is_a?(RubySpeech::GRXML::Element)
+        #     value = RubySpeech::GRXML.import value
+        #   end
+        #   Nokogiri::XML::Builder.with(self) do |xml|
+        #     xml.cdata " #{value} "
+        #   end
+        # end
 
         def inspect_attributes # :nodoc:
           [:content_type, :value, :url] + super
@@ -266,72 +219,10 @@ module Punchblock
         class Success < Event::Complete::Reason
           register :success, :input_complete
 
-          ##
-          # @return [Symbol] the mode by which the question was answered. May be :speech or :dtmf
-          #
-          def mode
-            read_attr :mode, :to_sym
-          end
-
-          def mode=(other)
-            write_attr :mode, other
-          end
-
-          ##
-          # @return [Float] A measure of the confidence of the result, between 0-1
-          #
-          def confidence
-            read_attr :confidence, :to_f
-          end
-
-          def confidence=(other)
-            write_attr :confidence, other
-          end
-
-          ##
-          # @return [String] An intelligent interpretation of the meaning of the response.
-          #
-          def interpretation
-            interpretation_node.text
-          end
-
-          def interpretation=(other)
-            interpretation_node.content = other
-          end
-
-          ##
-          # @return [String] The exact response gained
-          #
-          def utterance
-            utterance_node.text
-          end
-
-          def utterance=(other)
-            utterance_node.content = other
-          end
+          attr_accessor :mode, :confidence, :interpretation, :utterance
 
           def inspect_attributes # :nodoc:
             [:mode, :confidence, :interpretation, :utterance] + super
-          end
-
-          private
-
-          def interpretation_node
-            child_node_with_name 'interpretation'
-          end
-
-          def utterance_node
-            child_node_with_name 'utterance'
-          end
-
-          def child_node_with_name(name)
-            node = find_first "ns:#{name}", :ns => self.class.registered_ns
-
-            unless node
-              self << (node = RayoNode.new(name, self.document))
-              node.namespace = self.class.registered_ns
-            end
-            node
           end
         end
 

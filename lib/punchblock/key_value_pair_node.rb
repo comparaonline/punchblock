@@ -1,23 +1,18 @@
 # encoding: utf-8
 
 module KeyValuePairNode
-  def self.included(klass)
-    klass.class_exec do
-      ##
-      # @param [String] name
-      # @param [String] value
-      #
-      def self.new(name, value = '')
-        super(self.name.split('::').last.downcase.to_sym).tap do |new_node|
-          case name
-          when Nokogiri::XML::Node
-            new_node.inherit name
-          else
-            new_node.name = name
-            new_node.value = value
-          end
-        end
-      end
+  ##
+  # @param [String] name
+  # @param [String] value
+  #
+  def initialize(name, value = '')
+    super()
+    case name
+    when Nokogiri::XML::Node
+      inherit name
+    else
+      self.name = name
+      self.value = value
     end
   end
 

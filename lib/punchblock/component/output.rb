@@ -31,13 +31,17 @@ module Punchblock
         super().tap do |new_node|
           case options
           when Hash
-            new_node.ssml = options.delete(:ssml) if options[:ssml]
-            new_node << options.delete(:text) if options[:text]
             options.each_pair { |k,v| new_node.send :"#{k}=", v }
           when Nokogiri::XML::Element
             new_node.inherit options
           end
         end
+      end
+
+      def inherit(xml_node)
+        ssml_node = xml_node.children.first
+        self.ssml = RubySpeech::SSML.import ssml_node if ssml_node
+        super
       end
 
       ##
@@ -58,8 +62,7 @@ module Punchblock
       # @return [String] the SSML document to render TTS
       #
       def ssml
-        node = children.first
-        RubySpeech::SSML.import node if node
+        @doc
       end
 
       ##
@@ -70,7 +73,7 @@ module Punchblock
         unless ssml.is_a?(RubySpeech::SSML::Element)
           ssml = RubySpeech::SSML.import ssml
         end
-        self << ssml
+        @doc = ssml
       end
 
       ##

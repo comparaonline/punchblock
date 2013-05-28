@@ -20,7 +20,6 @@ module Punchblock
 
         its(:call_id)     { should be == 'b' }
         its(:mixer_name)  { should be == 'm' }
-        its(:xmlns)       { should be == 'urn:xmpp:rayo:1' }
       end
 
       describe "when setting options in initializer" do

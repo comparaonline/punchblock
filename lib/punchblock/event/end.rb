@@ -7,12 +7,11 @@ module Punchblock
 
       include HasHeaders
 
-      def reason
-        children.select { |c| c.is_a? Nokogiri::XML::Element }.first.name.to_sym
-      end
+      attr_accessor :reason
 
-      def reason=(other)
-        self << Nokogiri::XML::Element.new(other.to_s, self.document)
+      def inherit(xml_node)
+        self.reason = xml_node.at_xpath('*').name.to_sym
+        super
       end
 
       def inspect_attributes # :nodoc:

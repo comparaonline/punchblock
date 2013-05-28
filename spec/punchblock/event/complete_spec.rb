@@ -10,7 +10,7 @@ module Punchblock
       end
 
       describe "setting a reason" do
-        let(:reason) { Punchblock::Component::Asterisk::AGI::Command::Complete::Success.new }
+        let(:reason) { Complete::Stop.new }
 
         subject { described_class.new }
 
@@ -81,7 +81,7 @@ module Punchblock
         let :stanza do
           <<-MESSAGE
 <complete xmlns='urn:xmpp:rayo:ext:1'>
-  <success xmlns='urn:xmpp:rayo:output:complete:1' />
+  <stop xmlns='urn:xmpp:rayo:ext:complete:1' />
 </complete>
           MESSAGE
         end
@@ -92,7 +92,7 @@ module Punchblock
 
         it_should_behave_like 'event'
 
-        its(:reason) { should be_instance_of Component::Output::Complete::Success }
+        its(:reason) { should be_instance_of Complete::Stop }
       end
     end
 

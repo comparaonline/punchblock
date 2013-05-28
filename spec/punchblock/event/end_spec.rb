@@ -29,7 +29,6 @@ module Punchblock
         it_should_behave_like 'event_headers'
 
         its(:reason) { should be == :timeout }
-        its(:xmlns) { should be == 'urn:xmpp:rayo:1' }
       end
 
       describe "when setting options in initializer" do

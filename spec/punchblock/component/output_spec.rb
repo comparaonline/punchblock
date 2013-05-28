@@ -53,35 +53,6 @@ module Punchblock
         repeat-times='10'
         max-time='30000'
         voice='allison'
-        renderer='swift'>Hello world</output>
-          MESSAGE
-        end
-
-        subject { RayoNode.import parse_stanza(stanza).root, '9f00061', '1' }
-
-        it { should be_instance_of Output }
-
-        its(:interrupt_on)     { should be == :speech }
-        its(:start_offset)     { should be == 2000 }
-        its(:start_paused)     { should be == false }
-        its(:repeat_interval)  { should be == 2000 }
-        its(:repeat_times)     { should be == 10 }
-        its(:max_time)         { should be == 30000 }
-        its(:voice)            { should be == 'allison' }
-        its(:renderer)         { should be == 'swift' }
-        its(:text)             { should be == 'Hello world' }
-
-        context "with SSML" do
-          let :stanza do
-            <<-MESSAGE
-<output xmlns='urn:xmpp:rayo:output:1'
-        interrupt-on='speech'
-        start-offset='2000'
-        start-paused='false'
-        repeat-interval='2000'
-        repeat-times='10'
-        max-time='30000'
-        voice='allison'
         renderer='swift'>
   <speak version="1.0"
         xmlns="http://www.w3.org/2001/10/synthesis"
@@ -89,24 +60,28 @@ module Punchblock
     <say-as interpret-as="ordinal">100</say-as>
   </speak>
 </output>
-            MESSAGE
-          end
-
-          def ssml_doc(mode = :ordinal)
-            RubySpeech::SSML.draw do
-              say_as(:interpret_as => mode) { string '100' }
-            end
-          end
-
-          its(:ssml) { should be == ssml_doc }
+          MESSAGE
         end
-      end
 
-      describe "for text" do
-        subject { Output.new :text => 'Once upon a time there was a message...', :voice => 'kate' }
+        def ssml_doc(mode = :ordinal)
+          RubySpeech::SSML.draw do
+            say_as(:interpret_as => mode) { string '100' }
+          end
+        end
 
-        its(:voice) { should be == 'kate' }
-        its(:text) { should be == 'Once upon a time there was a message...' }
+        subject { RayoNode.import parse_stanza(stanza).root, '9f00061', '1' }
+
+        it { should be_instance_of Output }
+
+        its(:interrupt_on)    { should be == :speech }
+        its(:start_offset)    { should be == 2000 }
+        its(:start_paused)    { should be == false }
+        its(:repeat_interval) { should be == 2000 }
+        its(:repeat_times)    { should be == 10 }
+        its(:max_time)        { should be == 30000 }
+        its(:voice)           { should be == 'allison' }
+        its(:renderer)        { should be == 'swift' }
+        its(:ssml)            { should be == ssml_doc }
       end
 
       describe "for SSML" do
@@ -135,7 +110,7 @@ module Punchblock
 
       describe "actions" do
         let(:mock_client) { mock 'Client' }
-        let(:command) { Output.new :text => 'Once upon a time there was a message...', :voice => 'kate' }
+        let(:command) { Output.new }
 
         before do
           command.component_id = 'abc123'

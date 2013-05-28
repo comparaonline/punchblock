@@ -19,7 +19,6 @@ module Punchblock
         it_should_behave_like 'event'
 
         its(:signal) { should be == '#' }
-        its(:xmlns) { should be == 'urn:xmpp:rayo:1' }
       end
 
       describe "when setting options in initializer" do

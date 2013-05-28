@@ -4,7 +4,7 @@ require 'active_support/core_ext/class/attribute'
 require 'niceogiri'
 
 module Punchblock
-  class RayoNode < Niceogiri::XML::Node
+  class RayoNode
     InvalidNodeError = Class.new Punchblock::Error
 
     @@registrations = {}
@@ -56,15 +56,26 @@ module Punchblock
       end
     end
 
-    # Create a new Node object
-    #
-    # @param [String, nil] name the element name
-    # @param [XML::Document, nil] doc the document to attach the node to. If
-    # not provided one will be created
-    # @return a new object with the registered name and namespace
-    def self.new(name = registered_name, doc = nil)
-      raise InvalidNodeError, "Trying to create a new #{self} with no name" unless name
-      super name, doc, registered_ns
+    def inherit(xml_node)
+      xml_node.attributes.each do |key, attr_node|
+        write_attr key, attr_node.value
+      end
+      self
+    end
+
+    def initialize(options = {})
+      @attrs = {}
+      options.each_pair { |k,v| send :"#{k}=", v }
+    end
+
+    def write_attr(key, value, to_call = nil)
+      @attrs[key.to_s] = value && to_call ? value.__send__(to_call) : value
+    end
+
+    def read_attr(key, callable = nil)
+      val = @attrs[key.to_s]
+      val = val.send(callable) if val && callable
+      val
     end
 
     def inspect_attributes # :nodoc:
@@ -76,7 +87,12 @@ module Punchblock
     end
 
     def eql?(o, *fields)
-      super o, *(fields + inspect_attributes)
+      o.is_a?(self.class) && (fields + inspect_attributes).all? { |f| self.__send__(f) == o.__send__(f) }
+    end
+
+    # @private
+    def ==(o)
+      eql?(o)
     end
 
     ##
@@ -87,7 +103,9 @@ module Punchblock
       @source ||= original_component
     end
 
+    def to_xml
+    end
+
     alias :to_s :inspect
-    alias :xmlns :namespace_href
   end
 end
