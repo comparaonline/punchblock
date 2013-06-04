@@ -11,7 +11,8 @@ module Punchblock
       def initialize(options = {})
         @stream_options = options.values_at(:host, :port, :username, :password)
         @translator_options = options.values_at(:media_engine)
-        new_ami_components
+        @ami_client = new_ami_stream
+        @translator = Translator::Asterisk.new @ami_client, self, *@translator_options
         super()
       end
 
@@ -33,16 +34,33 @@ module Punchblock
         event_handler.call event
       end
 
-      def new_ami_components
-        @ami_client = RubyAMI::Stream.new(*@stream_options, ->(event) { translator.async.handle_ami_event event }, pb_logger)
-        @translator = Translator::Asterisk.new @ami_client, self, *@translator_options
+      def new_ami_stream
+        stream = RubyAMI::Stream.new(*@stream_options, ->(event) { translator.async.handle_ami_event event }, pb_logger)
+        client = (ami_client || RubyAMIStreamProxy.new(stream))
+        client.stream = stream
+        client
       end
 
       def start_ami_client
-        new_ami_components unless ami_client.alive?
+        @ami_client = new_ami_stream unless ami_client.alive?
         ami_client.async.run
         Celluloid::Actor.join(ami_client)
       end
+    end
+
+    class RubyAMIStreamProxy
+      attr_accessor :stream
+
+      #delegate :alive?, :async, :sync, :send_action, :thread, :terminate, to: :stream
+
+      def initialize(ami)
+        @stream = ami
+      end
+
+      def method_missing(method, *args, &block)
+        stream.__send__(method, *args, &block)
+      end
+
     end
   end
 end
