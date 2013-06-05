@@ -132,27 +132,28 @@ module Punchblock
             join_command.response = true if join_command
           when 'Bridge'
             other_call_channel = ([ami_event['Channel1'], ami_event['Channel2']] - [channel]).first
-            if other_call = translator.call_for_channel(other_call_channel)
-              event = case ami_event['Bridgestate']
-              when 'Link'
-                Event::Joined.new.tap do |e|
-                  e.call_id = other_call.id
-                end
-              when 'Unlink'
-                Event::Unjoined.new.tap do |e|
-                  e.call_id = other_call.id
-                end
-              end
-              send_pb_event event
+            other_caller_id = (ami_event['Channel1'] == channel) ? ami_event['CallerID2'] : ami_event['CallerID1']
+            other_call = translator.call_for_channel(other_call_channel)
+            event = case ami_event['Bridgestate']
+                    when 'Link' then Event::Joined.new
+                    when 'Unlink' then Event::Unjoined.new.tap
+                    end
+            event.tap do |e|
+              e.channel_name = other_call_channel
+              e.caller_id = other_caller_id
+              e.call_id = other_call.id if other_call
             end
+            send_pb_event event
           when 'Unlink'
             other_call_channel = ([ami_event['Channel1'], ami_event['Channel2']] - [channel]).first
-            if other_call = translator.call_for_channel(other_call_channel)
-              event = Event::Unjoined.new.tap do |e|
-                e.call_id = other_call.id
-              end
-              send_pb_event event
+            other_caller_id = (ami_event['Channel1'] == channel) ? ami_event['CallerID2'] : ami_event['CallerID1']
+            other_call = translator.call_for_channel(other_call_channel)
+            event = Event::Unjoined.new.tap do |e|
+              e.channel_name = other_call_channel
+              e.caller_id = other_caller_id
+              e.call_id = other_call.id if other_call
             end
+            send_pb_event event
           when 'VarSet'
             @channel_variables[ami_event['Variable']] = ami_event['Value']
           end

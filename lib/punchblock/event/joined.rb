@@ -32,6 +32,16 @@ module Punchblock
       def inspect_attributes # :nodoc:
         [:call_id, :mixer_name] + super
       end
+
+      # @return [String] the caller ID that was joined
+      attribute :caller_id
+
+      # @return [String] the channel name that was joined
+      attribute :channel_name
+
+      def has_call_reference?
+        call_id.nil? || call_id == ''
+      end
     end # Joined
   end
-end # Punchblock
+end
