@@ -136,7 +136,7 @@ module Punchblock
             other_call = translator.call_for_channel(other_call_channel)
             event = case ami_event['Bridgestate']
                     when 'Link' then Event::Joined.new
-                    when 'Unlink' then Event::Unjoined.new.tap
+                    when 'Unlink' then Event::Unjoined.new
                     end
             event.tap do |e|
               e.channel_name = other_call_channel
