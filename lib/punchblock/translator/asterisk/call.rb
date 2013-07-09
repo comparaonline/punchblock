@@ -138,21 +138,18 @@ module Punchblock
                     when 'Link' then Event::Joined.new
                     when 'Unlink' then Event::Unjoined.new
                     end
-            event.tap do |e|
-              e.channel_name = other_call_channel
-              e.caller_id = other_caller_id
-              e.call_id = other_call.id if other_call
-            end
+            event.channel_name = other_call_channel
+            event.caller_id = other_caller_id
+            event.call_id = other_call.id if other_call
             send_pb_event event
           when 'Unlink'
             other_call_channel = ([ami_event['Channel1'], ami_event['Channel2']] - [channel]).first
             other_caller_id = (ami_event['Channel1'] == channel) ? ami_event['CallerID2'] : ami_event['CallerID1']
             other_call = translator.call_for_channel(other_call_channel)
-            event = Event::Unjoined.new.tap do |e|
-              e.channel_name = other_call_channel
-              e.caller_id = other_caller_id
-              e.call_id = other_call.id if other_call
-            end
+            event = Event::Unjoined.new
+            event.channel_name = other_call_channel
+            event.caller_id = other_caller_id
+            event.call_id = other_call.id if other_call
             send_pb_event event
           when 'VarSet'
             @channel_variables[ami_event['Variable']] = ami_event['Value']
