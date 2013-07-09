@@ -33,11 +33,29 @@ module Punchblock
         [:call_id, :mixer_name] + super
       end
 
-      # @return [String] the caller ID that was joined
-      attribute :caller_id
+      ##
+      # @return [String] the caller id that was joined
+      def caller_id
+        read_attr :'caller-id'
+      end
 
+      ##
+      # @param [String] other the caller id that was joined
+      def caller_id=(other)
+        write_attr :'caller-id', other
+      end
+
+      ##
       # @return [String] the channel name that was joined
-      attribute :channel_name
+      def channel_name
+        read_attr :'channel-name'
+      end
+
+      ##
+      # @param [String] other the channel name that was joined
+      def channel_name=(other)
+        write_attr :'channel-name', other
+      end
 
       def has_call_reference?
         call_id.nil? || call_id == ''
