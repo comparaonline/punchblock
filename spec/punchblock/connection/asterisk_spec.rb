@@ -25,7 +25,8 @@ module Punchblock
         subject.event_handler = mock_event_handler
       end
 
-      its(:ami_client) { should be_a RubyAMI::Stream }
+      its(:ami_client) { should be_a RubyAMIStreamProxy }
+      its('ami_client.stream') { should be_a RubyAMI::Stream }
 
       it 'should set the connection on the translator' do
         subject.translator.connection.should be subject
@@ -43,13 +44,16 @@ module Punchblock
           lambda { subject.run }.should raise_error DisconnectedError
         end
 
-        it 'rebuild the RubyAMI::Stream if dead' do
+        it 'rebuilds the RubyAMI::Stream if dead' do
           subject.ami_client.async.should_receive(:run).once do
             subject.ami_client.terminate
           end
           lambda { subject.run }.should raise_error DisconnectedError
           subject.ami_client.alive?.should be_false
-          subject.should_receive(:new_ami_components).once
+          subject.should_receive(:new_ami_stream).once do
+            subject.ami_client.alive?.should be_true
+            subject.ami_client.async.should_receive(:run).once
+          end
           lambda { subject.run }.should_not raise_error DisconnectedError
         end
       end

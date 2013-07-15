@@ -51,8 +51,6 @@ module Punchblock
     class RubyAMIStreamProxy
       attr_accessor :stream
 
-      #delegate :alive?, :async, :sync, :send_action, :thread, :terminate, to: :stream
-
       def initialize(ami)
         @stream = ami
       end
