@@ -6,6 +6,6 @@ module Punchblock
       register :answered, :core
 
       include HasHeaders
-    end
-  end
-end
+    end # End
+  end # Event
+end # Punchblock

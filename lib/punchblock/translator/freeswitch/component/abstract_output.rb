@@ -7,10 +7,10 @@ module Punchblock
         class AbstractOutput < Component
           UnrenderableDocError = Class.new OptionError
 
-          def execute
+          def execute(*args)
             validate
             send_ref
-            do_output
+            do_output(*args)
           rescue UnrenderableDocError => e
             with_error 'unrenderable document error', e.message
           rescue OptionError => e
@@ -35,21 +35,20 @@ module Punchblock
           end
 
           def validate
-            raise OptionError, 'An SSML document is required.' unless @component_node.render_documents.first.value
-            raise OptionError, 'Only a single document is supported.' unless @component_node.render_documents.size == 1
+            raise OptionError, 'An SSML document is required.' unless @component_node.ssml
 
             [:start_offset, :start_paused, :repeat_interval, :repeat_times, :max_time].each do |opt|
               raise OptionError, "A #{opt} value is unsupported." if @component_node.send opt
             end
 
             case @component_node.interrupt_on
-            when :voice, :dtmf, :any
+            when :speech, :dtmf, :any
               raise OptionError, "An interrupt-on value of #{@component_node.interrupt_on} is unsupported."
             end
           end
 
-          def finish_reason
-            Punchblock::Component::Output::Complete::Finish.new
+          def success_reason
+            Punchblock::Component::Output::Complete::Success.new
           end
         end
       end

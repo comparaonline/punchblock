@@ -10,8 +10,9 @@ module Punchblock
 
       def initialize(options = {})
         @stream_options = options.values_at(:host, :port, :username, :password)
+        @translator_options = options.values_at(:media_engine)
         @ami_client = new_ami_stream
-        @translator = Translator::Asterisk.new @ami_client, self
+        @translator = Translator::Asterisk.new @ami_client, self, *@translator_options
         super()
       end
 

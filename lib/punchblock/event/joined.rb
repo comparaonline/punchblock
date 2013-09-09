@@ -5,24 +5,61 @@ module Punchblock
     class Joined < Event
       register :joined, :core
 
+      ##
       # @return [String] the call ID that was joined
-      attribute :call_uri
+      def call_id
+        read_attr :'call-id'
+      end
 
+      ##
+      # @param [String] other the call ID that was joined
+      def call_id=(other)
+        write_attr :'call-id', other
+      end
+
+      ##
       # @return [String] the mixer name that was joined
-      attribute :mixer_name
+      def mixer_name
+        read_attr :'mixer-name'
+      end
 
+      ##
+      # @param [String] other the mixer name that was joined
+      def mixer_name=(other)
+        write_attr :'mixer-name', other
+      end
+
+      def inspect_attributes # :nodoc:
+        [:call_id, :mixer_name] + super
+      end
+
+      ##
       # @return [String] the caller id that was joined
-      attribute :caller_id
+      def caller_id
+        read_attr :'caller-id'
+      end
 
-      # @return [String] other the channel name that was joined
-      attribute :channel_name
+      ##
+      # @param [String] other the caller id that was joined
+      def caller_id=(other)
+        write_attr :'caller-id', other
+      end
 
-      alias :call_id :call_uri
+      ##
+      # @return [String] the channel name that was joined
+      def channel_name
+        read_attr :'channel-name'
+      end
+
+      ##
+      # @param [String] other the channel name that was joined
+      def channel_name=(other)
+        write_attr :'channel-name', other
+      end
 
       def has_call_reference?
         call_id.nil? || call_id == ''
       end
-
-    end
+    end # Joined
   end
 end

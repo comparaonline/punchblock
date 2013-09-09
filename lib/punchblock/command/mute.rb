@@ -4,6 +4,6 @@ module Punchblock
   module Command
     class Mute < CommandNode
       register :mute, :core
-    end
-  end
-end
+    end # Mute
+  end # Command
+end # Punchblock

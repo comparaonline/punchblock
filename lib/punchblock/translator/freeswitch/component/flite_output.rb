@@ -7,12 +7,8 @@ module Punchblock
         class FliteOutput < TTSOutput
           private
 
-          def renderer
-            :flite
-          end
-
           def document
-            @component_node.render_documents.first.value.inner_text.to_s
+            @component_node.ssml.inner_text.to_s
           end
         end
       end

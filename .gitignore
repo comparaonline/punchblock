@@ -12,4 +12,3 @@ vendor
 .rbx/
 *.rbc
 tmp
-coverage

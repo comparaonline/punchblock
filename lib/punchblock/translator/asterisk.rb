@@ -8,29 +8,27 @@ module Punchblock
     class Asterisk
       include Celluloid
 
-      # Indicates that a command was executed against a channel which no longer exists
-      ChannelGoneError = Class.new Punchblock::Error
-
       extend ActiveSupport::Autoload
 
       autoload :AGICommand
       autoload :Call
-      autoload :Channel
       autoload :Component
 
-      attr_reader :ami_client, :connection, :calls
+      attr_reader :ami_client, :connection, :media_engine, :calls
 
       REDIRECT_CONTEXT = 'adhearsion-redirect'
       REDIRECT_EXTENSION = '1'
       REDIRECT_PRIORITY = '1'
 
-      EVENTS_ALLOWED_BRIDGED = %w{AGIExec AsyncAGI}
+      CHANNEL_NORMALIZATION_REGEXP = /^(?<prefix>Bridge\/)*(?<channel>[^<>]*)(?<suffix><.*>)*$/.freeze
+      EVENTS_ALLOWED_BRIDGED = %w{agiexec asyncagi}
 
       trap_exit :actor_died
 
-      def initialize(ami_client, connection)
-        @ami_client, @connection = ami_client, connection
+      def initialize(ami_client, connection, media_engine = nil)
+        @ami_client, @connection, @media_engine = ami_client, connection, media_engine
         @calls, @components, @channel_to_call_id = {}, {}, {}
+        @fully_booted_count = 0
       end
 
       def register_call(call)
@@ -38,9 +36,9 @@ module Punchblock
         @calls[call.id] ||= call
       end
 
-      def deregister_call(id, channel)
-        @channel_to_call_id.delete channel
-        @calls.delete id
+      def deregister_call(call)
+        @channel_to_call_id.delete call.channel
+        @calls.delete call.id
       end
 
       def call_with_id(call_id)
@@ -48,7 +46,7 @@ module Punchblock
       end
 
       def call_for_channel(channel)
-        call_with_id @channel_to_call_id[Channel.new(channel).name]
+        call_with_id @channel_to_call_id[channel.match(CHANNEL_NORMALIZATION_REGEXP)[:channel]]
       end
 
       def register_component(component)
@@ -67,7 +65,7 @@ module Punchblock
       def handle_ami_event(event)
         return unless event.is_a? RubyAMI::Event
 
-        if event.name == 'FullyBooted'
+        if event.name.downcase == "fullybooted"
           handle_pb_event Connection::Connected.new
           run_at_fully_booted
           return
@@ -78,7 +76,7 @@ module Punchblock
         ami_dispatch_to_or_create_call event
 
         unless ami_event_known_call?(event)
-          handle_pb_event Event::Asterisk::AMI::Event.new(name: event.name, headers: event.headers)
+          handle_pb_event Event::Asterisk::AMI::Event.new(:name => event.name, :attributes => event.headers)
         end
       end
       exclusive :handle_ami_event
@@ -173,24 +171,24 @@ module Punchblock
       end
 
       def ami_dispatch_to_or_create_call(event)
-        calls_for_event = channels_for_ami_event(event).inject({}) do |h, channel|
-          call = call_for_channel channel
-          h[channel] = call if call
-          h
-        end
-
-        if !calls_for_event.empty?
-          calls_for_event.each_pair do |channel, call|
-            next if channel.bridged? && !EVENTS_ALLOWED_BRIDGED.include?(event.name)
-            call.async.process_ami_event event
+        if ami_event_known_call?(event)
+          channels_for_ami_event(event).each do |channel|
+            call = call_for_channel channel
+            if call
+              if channel_is_bridged?(channel)
+                call.async.process_ami_event event if EVENTS_ALLOWED_BRIDGED.include?(event.name.downcase)
+              else
+                call.async.process_ami_event event
+              end
+            end
           end
-        elsif event.name == "AsyncAGI" && event['SubEvent'] == "Start"
+        elsif event.name.downcase == "asyncagi" && event['SubEvent'] == "Start"
           handle_async_agi_start_event event
         end
       end
 
       def channels_for_ami_event(event)
-        [event['Channel'], event['Channel1'], event['Channel2']].compact.map { |channel| Channel.new(channel) }
+        [event['Channel'], event['Channel1'], event['Channel2']].compact
       end
 
       def ami_event_known_call?(event)
@@ -199,12 +197,18 @@ module Punchblock
           (event['Channel2'] && call_for_channel(event['Channel2']))
       end
 
+      def channel_is_bridged?(channel)
+        matches = channel.match CHANNEL_NORMALIZATION_REGEXP
+        matches[:prefix] || matches[:suffix]
+      end
+
       def handle_async_agi_start_event(event)
         env = RubyAMI::AsyncAGIEnvironmentParser.new(event['Env']).to_hash
 
         return if env[:agi_extension] == 'h' || env[:agi_type] == 'Kill'
 
-        call = Call.new_link event['Channel'], current_actor, ami_client, connection, env
+        call = Call.new event['Channel'], current_actor, ami_client, connection, env
+        link call
         register_call call
         call.async.send_offer
       end

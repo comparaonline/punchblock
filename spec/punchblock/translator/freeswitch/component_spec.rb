@@ -26,7 +26,7 @@ module Punchblock
                 RubyFS::Event.new nil, :event_name => 'CHANNEL_EXECUTE'
               end
 
-              let(:response) { double 'Response' }
+              let(:response) { mock 'Response' }
 
               it 'should execute the handler' do
                 response.should_receive(:call).once.with es_event
@@ -46,8 +46,10 @@ module Punchblock
             end
 
             let :expected_event do
-              Punchblock::Event::Complete.new target_call_id: call.id,
-                component_id: subject.id
+              Punchblock::Event::Complete.new.tap do |e|
+                e.target_call_id = call.id
+                e.component_id = subject.id
+              end
             end
 
             it "should send the event to the connection" do
@@ -61,7 +63,9 @@ module Punchblock
 
             let(:reason) { Punchblock::Event::Complete::Stop.new }
             let :expected_event do
-              Punchblock::Event::Complete.new reason: reason
+              Punchblock::Event::Complete.new.tap do |c|
+                c.reason = Punchblock::Event::Complete::Stop.new
+              end
             end
 
             it "should send a complete event with the specified reason" do

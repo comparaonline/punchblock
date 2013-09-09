@@ -5,10 +5,12 @@ require 'spec_helper'
 module Punchblock
   module Translator
     describe Freeswitch do
-      let(:connection)    { double 'Connection::Freeswitch' }
+      let(:connection)    { mock 'Connection::Freeswitch' }
+      let(:media_engine)  { :flite }
+      let(:default_voice) { :hal }
 
-      let(:translator)  { described_class.new connection }
-      let(:stream)      { double 'RubyFS::Stream' }
+      let(:translator)  { described_class.new connection, media_engine, default_voice }
+      let(:stream)      { mock 'RubyFS::Stream' }
 
       before { connection.should_receive(:stream).at_most(:once).and_return stream }
 
@@ -86,14 +88,14 @@ module Punchblock
 
         it 'should make the call inaccessible by ID' do
           subject.call_with_id(call_id).should be call
-          subject.deregister_call call_id
+          subject.deregister_call call
           subject.call_with_id(call_id).should be_nil
         end
       end
 
       describe '#register_component' do
         let(:component_id) { 'abc123' }
-        let(:component)    { double 'Foo', :id => component_id }
+        let(:component)    { mock 'Foo', :id => component_id }
 
         it 'should make the component accessible by ID' do
           subject.register_component component
@@ -103,7 +105,7 @@ module Punchblock
 
       describe '#execute_call_command' do
         let(:call_id) { 'abc123' }
-        let(:command) { Command::Answer.new target_call_id: call_id }
+        let(:command) { Command::Answer.new.tap { |c| c.target_call_id = call_id } }
 
         context "with a known call ID" do
           let(:call) { described_class::Call.new 'SIP/foo', subject }
@@ -121,13 +123,16 @@ module Punchblock
         end
 
         let :end_error_event do
-          Punchblock::Event::End.new reason: :error, target_call_id: call_id
+          Punchblock::Event::End.new.tap do |e|
+            e.target_call_id = call_id
+            e.reason = :error
+          end
         end
 
         context "for an outgoing call which began executing but crashed" do
           let(:dial_command) { Command::Dial.new :to => 'SIP/1234', :from => 'abc123' }
 
-          let(:call_id) { dial_command.response.call_id }
+          let(:call_id) { dial_command.response.id }
 
           before do
             stream.as_null_object
@@ -200,7 +205,7 @@ module Punchblock
         let(:component_node)  { Component::Output.new }
         let(:component)       { Translator::Freeswitch::Component::Output.new(component_node, call) }
 
-        let(:command) { Component::Stop.new component_id: component.id }
+        let(:command) { Component::Stop.new.tap { |c| c.component_id = component.id } }
 
         before do
           command.request!
@@ -246,10 +251,12 @@ module Punchblock
             call.should be_a Freeswitch::Call
             call.translator.should be subject
             call.stream.should be stream
+            call.media_engine.should be media_engine
+            call.default_voice.should be default_voice
           end
 
           it 'should instruct the call to send a dial' do
-            mock_call = double('Freeswitch::Call').as_null_object
+            mock_call = stub('Freeswitch::Call').as_null_object
             Freeswitch::Call.should_receive(:new_link).once.and_return mock_call
             mock_call.async.should_receive(:dial).once.with command
             subject.execute_global_command command
@@ -270,7 +277,7 @@ module Punchblock
 
       describe '#handle_pb_event' do
         it 'should forward the event to the connection' do
-          event = double 'Punchblock::Event'
+          event = mock 'Punchblock::Event'
           subject.connection.should_receive(:handle_event).once.with event
           subject.handle_pb_event event
         end
@@ -426,6 +433,8 @@ module Punchblock
           call.should be_a Freeswitch::Call
           call.translator.should be subject
           call.stream.should be stream
+          call.media_engine.should be media_engine
+          call.default_voice.should be default_voice
           call.es_env.should be ==  {
             :variable_direction                   => "inbound",
             :variable_uuid                        => "3f0e1e18-c056-11e1-b099-fffeda3ce54f",
@@ -521,7 +530,7 @@ module Punchblock
 
         describe 'with a CHANNEL_PARK event' do
           it 'should instruct the call to send an offer' do
-            mock_call = double('Freeswitch::Call').as_null_object
+            mock_call = stub('Freeswitch::Call').as_null_object
             Freeswitch::Call.should_receive(:new).once.and_return mock_call
             subject.wrapped_object.should_receive(:link)
             mock_call.async.should_receive(:send_offer).once

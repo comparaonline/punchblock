@@ -2,33 +2,39 @@
 
 module Punchblock
   module HasHeaders
-    def self.included(klass)
-      klass.attribute :headers, Hash, default: {}
-    end
-
-    def headers=(other)
-      super(other || {})
-    end
-
-    def inherit(xml_node)
-      xml_node.xpath('//ns:header', ns: self.class.registered_ns).to_a.each do |header|
-        if headers.has_key?(header[:name])
-          headers[header[:name]] = [headers[header[:name]]]
-          headers[header[:name]] << header[:value]
-        else
-          headers[header[:name]] = header[:value]
-        end
+    ##
+    # @return [Hash] hash of key-value pairs of headers
+    #
+    def headers_hash
+      headers.inject({}) do |hash, header|
+        hash[header.name.downcase.gsub('-', '_').to_sym] = header.value
+        hash
       end
-      super
     end
 
-    def rayo_children(root)
-      super
-      headers.each do |name, value|
-        Array(value).each do |v|
-          root.header name: name, value: v
-        end
+    ##
+    # @return [Array[Header]] headers
+    #
+    def headers
+      find('//ns:header', :ns => self.class.registered_ns).map do |i|
+        Header.new i
       end
+    end
+
+    ##
+    # @param [Hash, Array] headers A hash of key-value header pairs, or an array of Header objects
+    #
+    def headers=(headers)
+      find('//ns:header', :ns => self.class.registered_ns).each(&:remove)
+      if headers.is_a? Hash
+        headers.each_pair { |k,v| self << Header.new(k, v) }
+      elsif headers.is_a? Array
+        [headers].flatten.each { |i| self << Header.new(i) }
+      end
+    end
+
+    def inspect_attributes # :nodoc:
+      [:headers_hash] + super
     end
   end
 end

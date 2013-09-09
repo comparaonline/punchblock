@@ -7,42 +7,94 @@ module Punchblock
 
       include HasHeaders
 
-      # @return [String] destination to dial
-      attribute :to
-
-      # @return [String] the caller ID
-      attribute :from
-
-      # @return [Integer] timeout in milliseconds
-      attribute :timeout, Integer
-
-      # @return [Join] the nested join
-      attribute :join, Join
-
-      def inherit(xml_node)
-        if join_element = xml_node.at_xpath('ns:join', ns: Join.registered_ns)
-          self.join = Join.from_xml(join_element)
+      ##
+      # Create a dial command
+      #
+      # @param [Hash] options
+      # @option options [String] :to destination to dial
+      # @option options [String, Optional] :from what to set the Caller ID to
+      # @option options [Integer, Optional] :timeout in milliseconds
+      # @option options [Array[Header], Hash, Optional] :headers SIP headers to attach to
+      #   the new call. Can be either a hash of key-value pairs, or an array of
+      #   Header objects.
+      # @option options [Join, Hash, Optional] :join a join (or set of join parameters) to
+      #   nest within the dial
+      #
+      # @return [Command::Dial] a formatted Rayo dial command
+      #
+      # @example
+      #    dial :to => 'tel:+14155551212', :from => 'tel:+13035551212'
+      #
+      #    returns:
+      #      <dial to='tel:+13055195825' from='tel:+14152226789' xmlns='urn:xmpp:rayo:1' />
+      #
+      def self.new(options = {})
+        super().tap do |new_node|
+          options.each_pair { |k,v| new_node.send :"#{k}=", v }
         end
-        super
       end
 
-      def rayo_attributes
-        {to: to, from: from, timeout: timeout}
+      ##
+      # @return [String] destination to dial
+      def to
+        read_attr :to
       end
 
-      def rayo_children(root)
-        join.to_rayo(root.parent) if join
-        super
+      ##
+      # @param [String] dial_to destination to dial
+      def to=(dial_to)
+        write_attr :to, dial_to
+      end
+
+      ##
+      # @return [String] the caller ID
+      def from
+        read_attr :from
+      end
+
+      ##
+      # @param [String] dial_from what to set the caller ID to
+      def from=(dial_from)
+        write_attr :from, dial_from
+      end
+
+      ##
+      # @return [Integer] timeout in milliseconds
+      def timeout
+        read_attr :timeout, :to_i
+      end
+
+      ##
+      # @param [Integer] other timeout in milliseconds
+      def timeout=(other)
+        write_attr :timeout, other
+      end
+
+      ##
+      # @return [Join] the nested join
+      #
+      def join
+        element = find_first 'ns:join', :ns => Join.registered_ns
+        Join.new element if element
+      end
+
+      ##
+      # @param [Hash, Join] other a join or hash of join options
+      #
+      def join=(other)
+        remove_children :join
+        join = Join.new(other) unless other.is_a?(Join)
+        self << join
       end
 
       def response=(other)
-        if other.is_a?(Ref)
-          @transport = other.scheme
-          @target_call_id = other.call_id
-          @domain = other.domain
-        end
+        @target_call_id = other.id if other.is_a?(Ref)
         super
       end
-    end
-  end
-end
+
+      def inspect_attributes # :nodoc:
+        [:to, :from, :join] + super
+      end
+    end # Dial
+  end # Command
+end # Punchblock

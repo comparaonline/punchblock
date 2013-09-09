@@ -6,101 +6,41 @@ module Punchblock
   module Component
     describe Input do
       it 'registers itself' do
-        RayoNode.class_from_registration(:input, 'urn:xmpp:rayo:input:1').should be == described_class
+        RayoNode.class_from_registration(:input, 'urn:xmpp:rayo:input:1').should be == Input
       end
 
       describe "when setting options in initializer" do
         subject do
-          described_class.new grammar: {value: '[5 DIGITS]', content_type: 'application/grammar+custom'},
-                    :mode                 => :voice,
+          Input.new :grammar              => {:value => '[5 DIGITS]', :content_type => 'application/grammar+custom'},
+                    :mode                 => :speech,
                     :terminator           => '#',
                     :max_silence          => 1000,
-                    :recognizer           => 'default',
-                    :language             => 'en-US',
+                    :recognizer           => 'en-US',
                     :initial_timeout      => 2000,
                     :inter_digit_timeout  => 2000,
                     :sensitivity          => 0.5,
                     :min_confidence       => 0.5
         end
 
-        its(:grammars)            { should be == [Input::Grammar.new(:value => '[5 DIGITS]', :content_type => 'application/grammar+custom')] }
-        its(:mode)                { should be == :voice }
+        its(:grammar)             { should be == Input::Grammar.new(:value => '[5 DIGITS]', :content_type => 'application/grammar+custom') }
+        its(:mode)                { should be == :speech }
         its(:terminator)          { should be == '#' }
         its(:max_silence)         { should be == 1000 }
-        its(:recognizer)          { should be == 'default' }
-        its(:language)            { should be == 'en-US' }
+        its(:recognizer)          { should be == 'en-US' }
         its(:initial_timeout)     { should be == 2000 }
         its(:inter_digit_timeout) { should be == 2000 }
         its(:sensitivity)         { should be == 0.5 }
         its(:min_confidence)      { should be == 0.5 }
-
-        context "with multiple grammars" do
-          subject do
-            Input.new :grammars => [
-              {:value => '[5 DIGITS]', :content_type => 'application/grammar+custom'},
-              {:value => '[10 DIGITS]', :content_type => 'application/grammar+custom'}
-            ]
-          end
-
-          its(:grammars) { should be == [
-            Input::Grammar.new(:value => '[5 DIGITS]', :content_type => 'application/grammar+custom'),
-            Input::Grammar.new(:value => '[10 DIGITS]', :content_type => 'application/grammar+custom')
-          ]}
-        end
-
-        context "with a nil grammar" do
-          it "removes all grammars" do
-            subject.grammar = nil
-            subject.grammars.should == []
-          end
-        end
-
-        context "without any grammars" do
-          subject { described_class.new }
-
-          its(:grammars) { should == [] }
-        end
-
-        describe "exporting to Rayo" do
-          it "should export to XML that can be understood by its parser" do
-            new_instance = RayoNode.from_xml subject.to_rayo
-            new_instance.should be_instance_of described_class
-            new_instance.grammars.should be == [Input::Grammar.new(value: '[5 DIGITS]', content_type: 'application/grammar+custom')]
-            new_instance.mode.should be == :voice
-            new_instance.terminator.should be == '#'
-            new_instance.max_silence.should be == 1000
-            new_instance.recognizer.should be == 'default'
-            new_instance.language.should be == 'en-US'
-            new_instance.initial_timeout.should be == 2000
-            new_instance.inter_digit_timeout.should be == 2000
-            new_instance.sensitivity.should be == 0.5
-            new_instance.min_confidence.should be == 0.5
-          end
-
-          it "should wrap the grammar value in CDATA" do
-            grammar_node = subject.to_rayo.at_xpath('ns:grammar', ns: described_class.registered_ns)
-            grammar_node.children.first.should be_a Nokogiri::XML::CDATA
-          end
-
-          it "should render to a parent node if supplied" do
-            doc = Nokogiri::XML::Document.new
-            parent = Nokogiri::XML::Node.new 'foo', doc
-            doc.root = parent
-            rayo_doc = subject.to_rayo(parent)
-            rayo_doc.should == parent
-          end
-        end
       end
 
       describe "from a stanza" do
         let :stanza do
           <<-MESSAGE
 <input xmlns="urn:xmpp:rayo:input:1"
-       mode="voice"
+       mode="speech"
        terminator="#"
        max-silence="1000"
-       recognizer="default"
-       language="en-US"
+       recognizer="en-US"
        initial-timeout="2000"
        inter-digit-timeout="2000"
        sensitivity="0.5"
@@ -108,32 +48,23 @@ module Punchblock
   <grammar content-type="application/grammar+custom">
     <![CDATA[ [5 DIGITS] ]]>
   </grammar>
-  <grammar content-type="application/grammar+custom">
-    <![CDATA[ [10 DIGITS] ]]>
-  </grammar>
 </input>
           MESSAGE
         end
 
-        subject { RayoNode.from_xml parse_stanza(stanza).root, '9f00061', '1' }
+        subject { RayoNode.import parse_stanza(stanza).root, '9f00061', '1' }
 
         it { should be_instance_of Input }
 
-        its(:grammars)            { should be == [Input::Grammar.new(:value => '[5 DIGITS]', :content_type => 'application/grammar+custom'), Input::Grammar.new(:value => '[10 DIGITS]', :content_type => 'application/grammar+custom')] }
-        its(:mode)                { should be == :voice }
+        its(:grammar)             { should be == Input::Grammar.new(:value => '[5 DIGITS]', :content_type => 'application/grammar+custom') }
+        its(:mode)                { should be == :speech }
         its(:terminator)          { should be == '#' }
         its(:max_silence)         { should be == 1000 }
-        its(:recognizer)          { should be == 'default' }
-        its(:language)            { should be == 'en-US' }
+        its(:recognizer)          { should be == 'en-US' }
         its(:initial_timeout)     { should be == 2000 }
         its(:inter_digit_timeout) { should be == 2000 }
         its(:sensitivity)         { should be == 0.5 }
         its(:min_confidence)      { should be == 0.5 }
-
-        context "without any grammars" do
-          let(:stanza) { '<input xmlns="urn:xmpp:rayo:input:1"/>' }
-          its(:grammars) { should be == [] }
-        end
       end
 
       def grxml_doc(mode = :dtmf)
@@ -152,19 +83,37 @@ module Punchblock
           its(:content_type) { should be == 'application/srgs+xml' }
         end
 
+        describe 'with a simple grammar' do
+          subject { Input::Grammar.new :value => '[5 DIGITS]', :content_type => 'application/grammar+custom' }
+
+          let(:expected_message) { "<![CDATA[ [5 DIGITS] ]]>" }
+
+          it "should wrap grammar in CDATA" do
+            subject.child.to_xml.should be == expected_message.strip
+          end
+        end
+
         describe 'with a GRXML grammar' do
           subject { Input::Grammar.new :value => grxml_doc, :content_type => 'application/srgs+xml' }
 
           its(:content_type) { should be == 'application/srgs+xml' }
 
+          let(:expected_message) { "<![CDATA[ #{grxml_doc} ]]>" }
+
+          it "should wrap GRXML in CDATA" do
+            subject.child.to_xml.should be == expected_message.strip
+          end
+
           its(:value) { should be == grxml_doc }
 
           describe "comparison" do
-            let(:grammar2) { Input::Grammar.new :value => grxml_doc }
-            let(:grammar3) { Input::Grammar.new :value => grxml_doc(:voice) }
+            let(:grammar2) { Input::Grammar.new :value => '<grammar xmlns="http://www.w3.org/2001/06/grammar" version="1.0" xml:lang="en-US" mode="dtmf" root="digits"><rule id="digits"><one-of><item>0</item><item>1</item></one-of></rule></grammar>' }
+            let(:grammar3) { Input::Grammar.new :value => grxml_doc }
+            let(:grammar4) { Input::Grammar.new :value => grxml_doc(:speech) }
 
             it { should be == grammar2 }
-            it { should_not be == grammar3 }
+            it { should be == grammar3 }
+            it { should_not be == grammar4 }
           end
         end
 
@@ -189,8 +138,8 @@ module Punchblock
       end
 
       describe "actions" do
-        let(:mock_client) { double 'Client' }
-        let(:command) { described_class.new grammar: {value: '[5 DIGITS]', content_type: 'application/grammar+custom'} }
+        let(:mock_client) { mock 'Client' }
+        let(:command) { Input.new :grammar => '[5 DIGITS]' }
 
         before do
           command.component_id = 'abc123'
@@ -227,123 +176,41 @@ module Punchblock
         end
       end
 
-      describe Input::Complete::Match do
-        let :nlsml_string do
-          '''
-<result xmlns="http://www.ietf.org/xml/ns/mrcpv2" grammar="http://flight">
-  <interpretation confidence="0.60">
-    <input mode="voice">I want to go to Pittsburgh</input>
-    <instance>
-      <airline>
-        <to_city>Pittsburgh</to_city>
-      </airline>
-    </instance>
-  </interpretation>
-  <interpretation confidence="0.40">
-    <input>I want to go to Stockholm</input>
-    <instance>
-      <airline>
-        <to_city>Stockholm</to_city>
-      </airline>
-    </instance>
-  </interpretation>
-</result>
-          '''
-        end
-
+      describe Input::Complete::Success do
         let :stanza do
           <<-MESSAGE
 <complete xmlns='urn:xmpp:rayo:ext:1'>
-  <match xmlns="urn:xmpp:rayo:input:complete:1" content-type="application/nlsml+xml">
-    <![CDATA[#{nlsml_string}]]>
-  </match>
+<success mode="speech" confidence="0.45" xmlns='urn:xmpp:rayo:input:complete:1'>
+  <interpretation>1234</interpretation>
+  <utterance>one two three four</utterance>
+</success>
 </complete>
           MESSAGE
         end
 
-        let :expected_nlsml do
-          RubySpeech.parse nlsml_string
-        end
+        subject { RayoNode.import(parse_stanza(stanza).root).reason }
 
-        subject { RayoNode.from_xml(parse_stanza(stanza).root).reason }
+        it { should be_instance_of Input::Complete::Success }
 
-        it { should be_instance_of Input::Complete::Match }
+        its(:name)            { should be == :success }
+        its(:mode)            { should be == :speech }
+        its(:confidence)      { should be == 0.45 }
+        its(:interpretation)  { should be == '1234' }
+        its(:utterance)       { should be == 'one two three four' }
 
-        its(:name)            { should be == :match }
-        its(:content_type)    { should be == 'application/nlsml+xml' }
-        its(:nlsml)           { should be == expected_nlsml }
-        its(:mode)            { should be == :voice }
-        its(:confidence)      { should be == 0.6 }
-        its(:interpretation)  { should be == { airline: { to_city: 'Pittsburgh' } } }
-        its(:utterance)       { should be == 'I want to go to Pittsburgh' }
-
-        describe "when creating from an NLSML document" do
+        describe "when setting options in initializer" do
           subject do
-            Input::Complete::Match.new :nlsml => expected_nlsml
+            Input::Complete::Success.new :mode            => :dtmf,
+                                         :confidence      => 1,
+                                         :utterance       => '123',
+                                         :interpretation  => 'dtmf-1 dtmf-2 dtmf-3'
           end
 
-          its(:content_type)    { should be == 'application/nlsml+xml' }
-          its(:nlsml)           { should be == expected_nlsml }
-          its(:mode)            { should be == :voice }
-          its(:confidence)      { should be == 0.6 }
-          its(:interpretation)  { should be == { airline: { to_city: 'Pittsburgh' } } }
-          its(:utterance)       { should be == 'I want to go to Pittsburgh' }
-        end
 
-        context "when not enclosed in CDATA, but escaped" do
-          let :stanza do
-            <<-MESSAGE
-<complete xmlns='urn:xmpp:rayo:ext:1'>
-  <match xmlns="urn:xmpp:rayo:input:complete:1" content-type="application/nlsml+xml">
-    &lt;result xmlns=&quot;http://www.ietf.org/xml/ns/mrcpv2&quot; grammar=&quot;http://flight&quot;/&gt;
-  </match>
-</complete>
-            MESSAGE
-          end
-
-          it "should parse the NLSML correctly" do
-            subject.nlsml.grammar.should == "http://flight"
-          end
-        end
-
-        context "when nested directly" do
-          let :stanza do
-            <<-MESSAGE
-<complete xmlns='urn:xmpp:rayo:ext:1'>
-  <match xmlns="urn:xmpp:rayo:input:complete:1" content-type="application/nlsml+xml">
-    #{nlsml_string}
-  </match>
-</complete>
-            MESSAGE
-          end
-
-          it "should parse the NLSML correctly" do
-            subject.nlsml.grammar.should == "http://flight"
-          end
-        end
-
-        describe "comparison" do
-          context "with the same nlsml" do
-            it "should be equal" do
-              subject.should == RayoNode.from_xml(parse_stanza(stanza).root).reason
-            end
-          end
-
-          context "with different nlsml" do
-            let :other_stanza do
-              <<-MESSAGE
-<complete xmlns='urn:xmpp:rayo:ext:1'>
-  <match xmlns="urn:xmpp:rayo:input:complete:1">
-    <![CDATA[<result xmlns="http://www.ietf.org/xml/ns/mrcpv2" grammar="http://flight"/>]]>
-  </match>
-</complete>
-              MESSAGE
-            end
-
-            it "should not be equal" do
-              subject.should_not == RayoNode.from_xml(parse_stanza(other_stanza).root).reason
-            end
-          end
+          its(:mode)            { should be == :dtmf }
+          its(:confidence)      { should be == 1 }
+          its(:utterance)       { should be == '123' }
+          its(:interpretation)  { should be == 'dtmf-1 dtmf-2 dtmf-3' }
         end
       end
 
@@ -351,12 +218,12 @@ module Punchblock
         let :stanza do
           <<-MESSAGE
 <complete xmlns='urn:xmpp:rayo:ext:1'>
-  <nomatch xmlns='urn:xmpp:rayo:input:complete:1' />
+<nomatch xmlns='urn:xmpp:rayo:input:complete:1' />
 </complete>
           MESSAGE
         end
 
-        subject { RayoNode.from_xml(parse_stanza(stanza).root).reason }
+        subject { RayoNode.import(parse_stanza(stanza).root).reason }
 
         it { should be_instance_of Input::Complete::NoMatch }
 
@@ -367,12 +234,12 @@ module Punchblock
         let :stanza do
           <<-MESSAGE
 <complete xmlns='urn:xmpp:rayo:ext:1'>
-  <noinput xmlns='urn:xmpp:rayo:input:complete:1' />
+<noinput xmlns='urn:xmpp:rayo:input:complete:1' />
 </complete>
           MESSAGE
         end
 
-        subject { RayoNode.from_xml(parse_stanza(stanza).root).reason }
+        subject { RayoNode.import(parse_stanza(stanza).root).reason }
 
         it { should be_instance_of Input::Complete::NoInput }
 

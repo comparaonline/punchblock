@@ -9,8 +9,10 @@ module Punchblock
         describe TTSOutput do
           include HasMockCallbackConnection
 
-          let(:translator)  { Punchblock::Translator::Freeswitch.new connection }
-          let(:mock_call)   { Punchblock::Translator::Freeswitch::Call.new 'foo', translator }
+          let(:media_engine)  { :flite }
+          let(:default_voice) { :hal }
+          let(:translator)    { Punchblock::Translator::Freeswitch.new connection }
+          let(:mock_call)     { Punchblock::Translator::Freeswitch::Call.new 'foo', translator }
 
           let :original_command do
             Punchblock::Component::Output.new command_options
@@ -23,19 +25,19 @@ module Punchblock
           end
 
           let :command_options do
-            { :render_document => {:value => ssml_doc}, :renderer => :flite }
+            { :ssml => ssml_doc }
           end
 
           def execute
-            subject.execute
+            subject.execute media_engine, default_voice
           end
 
           subject { described_class.new original_command, mock_call }
 
           describe '#execute' do
             before { original_command.request! }
-            def expect_playback(voice = :kal, renderer = :flite)
-              subject.wrapped_object.should_receive(:application).once.with :speak, "#{renderer}|#{voice}|#{ssml_doc}"
+            def expect_playback(voice = default_voice)
+              subject.wrapped_object.should_receive(:application).once.with :speak, "#{media_engine}|#{voice}|#{ssml_doc}"
             end
 
             let :ssml_doc do
@@ -47,17 +49,16 @@ module Punchblock
             let(:command_opts) { {} }
 
             let :command_options do
-              { :render_document => {:value => ssml_doc} }.merge(command_opts)
+              { :ssml => ssml_doc }.merge(command_opts)
             end
 
             let :original_command do
               Punchblock::Component::Output.new command_options
             end
 
-            describe 'document' do
+            describe 'ssml' do
               context 'unset' do
-                let(:ssml_doc) { nil }
-
+                let(:command_opts) { { :ssml => nil } }
                 it "should return an error and not execute any actions" do
                   execute
                   error = ProtocolError.new.setup 'option error', 'An SSML document is required.'
@@ -75,16 +76,7 @@ module Punchblock
                   expect_playback
                   execute
                   subject.handle_es_event RubyFS::Event.new(nil, :event_name => "CHANNEL_EXECUTE_COMPLETE")
-                  original_command.complete_event(0.1).reason.should be_a Punchblock::Component::Output::Complete::Finish
-                end
-              end
-
-              context 'with multiple documents' do
-                let(:command_opts) { { :render_documents => [{:value => ssml_doc}, {:value => ssml_doc}] } }
-                it "should return an error and not execute any actions" do
-                  subject.execute
-                  error = ProtocolError.new.setup 'option error', 'Only a single document is supported.'
-                  original_command.response(0.1).should be == error
+                  original_command.complete_event(0.1).reason.should be_a Punchblock::Component::Output::Complete::Success
                 end
               end
             end
@@ -229,11 +221,11 @@ module Punchblock
                 end
               end
 
-              context "set to :voice" do
-                let(:command_opts) { { :interrupt_on => :voice } }
+              context "set to :speech" do
+                let(:command_opts) { { :interrupt_on => :speech } }
                 it "should return an error and not execute any actions" do
                   execute
-                  error = ProtocolError.new.setup 'option error', 'An interrupt-on value of voice is unsupported.'
+                  error = ProtocolError.new.setup 'option error', 'An interrupt-on value of speech is unsupported.'
                   original_command.response(0.1).should be == error
                 end
               end
