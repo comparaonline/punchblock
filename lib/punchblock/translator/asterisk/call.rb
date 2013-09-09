@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+require 'punchblock/translator/asterisk/ami_error_converter'
+
 module Punchblock
   module Translator
     class Asterisk
@@ -10,6 +12,8 @@ module Punchblock
 
         extend ActorHasGuardedHandlers
         execute_guarded_handlers_on_receiver
+
+        InvalidCommandError = Class.new Punchblock::Error
 
         attr_reader :id, :channel, :translator, :agi_env, :direction
 
@@ -34,6 +38,7 @@ module Punchblock
           @progress_sent = false
           @block_commands = false
           @channel_variables = {}
+          @hangup_cause = nil
         end
 
         def register_component(component)
@@ -79,7 +84,7 @@ module Punchblock
                                                                               :params => params
           originate_action.request!
           translator.async.execute_global_command originate_action
-          dial_command.response = Ref.new :id => id
+          dial_command.response = Ref.new uri: id
         end
 
         def outbound?
@@ -105,11 +110,11 @@ module Punchblock
         end
 
         def process_ami_event(ami_event)
-          send_pb_event Event::Asterisk::AMI::Event.new(:name => ami_event.name, :attributes => ami_event.headers)
+          send_pb_event Event::Asterisk::AMI::Event.new(name: ami_event.name, headers: ami_event.headers)
 
           case ami_event.name
           when 'Hangup'
-            handle_hangup_event HANGUP_CAUSE_TO_END_REASON[ami_event['Cause'].to_i]
+            handle_hangup_event ami_event['Cause'].to_i
           when 'AsyncAGI'
             if component = component_with_id(ami_event['CommandID'])
               component.handle_ami_event ami_event
@@ -135,9 +140,9 @@ module Punchblock
             other_caller_id = (ami_event['Channel1'] == channel) ? ami_event['CallerID2'] : ami_event['CallerID1']
             other_call = translator.call_for_channel(other_call_channel)
             event = case ami_event['Bridgestate']
-                    when 'Link' then Event::Joined.new
-                    when 'Unlink' then Event::Unjoined.new
-                    end
+              when 'Link' then Event::Joined.new
+              when 'Unlink' then Event::Unjoined.new
+            end
             event.channel_name = other_call_channel
             event.caller_id = other_caller_id
             event.call_id = other_call.id if other_call
